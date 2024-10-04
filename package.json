@@ -1,0 +1,24 @@
+{
+  "name": "tg-gruz",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon bot.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaksVIper/tg-gruz.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MaksVIper/tg-gruz/issues"
+  },
+  "homepage": "https://github.com/MaksVIper/tg-gruz#readme",
+  "dependencies": {
+    "telegraf": "^4.16.3"
+  }
+}
