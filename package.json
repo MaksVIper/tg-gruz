@@ -1,6 +1,7 @@
 {
   "name": "tg-gruz",
   "version": "1.0.0",
+  "type": "commonjs",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -19,6 +20,10 @@
   },
   "homepage": "https://github.com/MaksVIper/tg-gruz#readme",
   "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "nedb": "^1.8.0",
+    "node-fetch": "^1.7.3",
     "telegraf": "^4.16.3"
   }
 }
