@@ -170,7 +170,7 @@ bot.on("text", async (ctx, next) => {
             ctx.deleteMessage(k)
         }
         ctx.reply(`Черновик полиса сформирован его номер ${ctx.session.newDraft.id}! Вы выбрали компанию ${ctx.session.company} В скором времени с вами свяжется наш сотрудник для последующего оформления. Спасибо что выбрали наш сервис!`);
-        //await sendLead(ctx);
+        await sendLead(ctx);
         ctx.session = {}
         await commandStart(ctx);
         return await next();
