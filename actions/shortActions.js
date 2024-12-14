@@ -183,13 +183,26 @@ async function getToken(ctx) {
     });
 }
 
+async function waitToken(ctx) {
+    tokens.find({}, function (err, docs) {
+        ctx.session = {
+            ...ctx.session,
+            token: docs[docs.length - 1].token
+        }
+    });
+    return new Promise((resolve,reject)=>{
+        setTimeout(()=>{resolve();} , 1000);
+    });
+}
+
 async function startAgg(ctx) {
-    const lsToken= `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvYXBpL3JlZnJlc2giLCJpYXQiOjE3Mjg1NDU0MjcsImV4cCI6MTcyOTU4MTI0NiwibmJmIjoxNzI5NTc3NjQ2LCJqdGkiOiIzZnE1ZloyemgxN2lTdlJRIiwic3ViIjoiMSIsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJ0b2tlblR5cGUiOiJzZXJ2aWNlIn0.kCg9ul-NwuA2VMp2t3kGjtmCB4p4W8A3UXOcZzJJ_Hk`;
-    return await axios.post(`${process.env.API_URL}/api/gpt`, {
+    await waitToken(ctx);
+    const lsToken= `Bearer ${ctx.session?.token}`;
+    return axios.post(`${process.env.API_URL}/api/gpt`, {
         query: 'defineCargo',
-        cargoFull: 'Материнские платы',
-        addressUp: 'Москва',
-        addressDown: 'Питер',
+        cargoFull: 'Трусы',
+        addressUp: 'Питер',
+        addressDown: 'Москва',
         typeTransport: 'Автомобильный',
     },{
         headers: {
@@ -198,24 +211,24 @@ async function startAgg(ctx) {
         },
         maxRedirects: 1,
     }).then(async (response) => {
-        console.log(response.data);
+        /*ctx.session = {
+            ...ctx.session,
+            cargo: response.data.result,
+            range: response.data.resultRange,
+        }*/
+        console.log(1111);
+        //await createPolicy(ctx);
         return {cargoFull: response.data.result, range: response.data.resultRange};
-    }).catch((error) => {
-        return error;
+    }).catch(async (error) => {
+        await getToken(ctx);
+        console.log(error.status);
+        await startAgg(ctx);
+        return false;
     });
 }
 
 async function getCargoCategory(ctx) {
-    if (!ctx.session.token) {
-        tokens.find({}, function (err, docs) {
-            if (docs.length) {
-                ctx.session = {
-                    ...ctx.session,
-                    token: docs[docs.length - 1].token
-                }
-            }
-        });
-    }
+    await waitToken(ctx);
     const lsToken= `Bearer ${ctx.session.token}`;
     return await axios.post(`${process.env.API_URL}/api/gpt`, {
         query: 'defineCargo',
@@ -378,10 +391,8 @@ async function sendLead(ctx) {
         },
         maxRedirects: 1,
     }).then((response) => {
-        console.log(response.data);
         return true;
     }).catch((error) => {
-        console.log(error);
         return false;
     });
 
