@@ -187,7 +187,7 @@ async function waitToken(ctx) {
     tokens.find({}, function (err, docs) {
         ctx.session = {
             ...ctx.session,
-            token: docs[docs.length - 1].token
+            token: docs[docs.length - 1]?.token
         }
     });
     return new Promise((resolve,reject)=>{
@@ -195,6 +195,7 @@ async function waitToken(ctx) {
     });
 }
 
+//Функция для тестирования
 async function startAgg(ctx) {
     await waitToken(ctx);
     const lsToken= `Bearer ${ctx.session?.token}`;
@@ -216,12 +217,12 @@ async function startAgg(ctx) {
             cargo: response.data.result,
             range: response.data.resultRange,
         }*/
-        console.log(1111);
         //await createPolicy(ctx);
+        console.log(response);
         return {cargoFull: response.data.result, range: response.data.resultRange};
     }).catch(async (error) => {
-        await getToken(ctx);
         console.log(error.status);
+        await getToken(ctx);
         await startAgg(ctx);
         return false;
     });
@@ -252,15 +253,15 @@ async function getCargoCategory(ctx) {
         await createPolicy(ctx);
         return {cargoFull: response.data.result, range: response.data.resultRange};
     }).catch(async (error) => {
+        console.log(error);
         await getToken(ctx);
-        console.log(error.status);
         await getCargoCategory(ctx);
         return false;
     });
 }
 
 async function startCalculationShort(ctx) {
-    await ctx.telegram.sendMessage(ctx.chat.id,
+    const message = await ctx.reply(
         `
     Вы ввели данные:➡
     Вид транспорта: ${transport.find(data => data.value === ctx.session.transport).label};
@@ -269,8 +270,15 @@ async function startCalculationShort(ctx) {
     Наименование груза: ${ctx.session.cargoName};
     Состояние груза: ${!ctx.session.newCargo ? 'новый' : 'Б/У'};
     Разгрузка/погрузка: ${ctx.session.upload ? 'Да' : 'Нет'};
-    Рефрежераторные риски: ${ctx.session.refrisks ? 'Да' : 'Нет'};
-    Подождите минуту, идет подсчёт премии!`);
+    Рефрежераторные риски: ${ctx.session.refrisks ? 'Да' : 'Нет'};`);
+    const sentMessage = await ctx.replyWithSticker('CAACAgIAAxkBAAEMP2pnoy4TJpXv_q3GnL9FIlOkPoq2yAACUgADr8ZRGgSvecXtKHqONgQ');
+    setTimeout(() => {
+            ctx.deleteMessage(sentMessage.message_id);
+            ctx.deleteMessage(message.message_id);
+        }, 5700);
+    //не убирать без него падать удаление стикера будет
+    console.log(sentMessage);
+    console.log(message);
     const lsToken= `Bearer ${ctx.session.token}`;
     return await axios.post(`${process.env.API_URL}/api/policies/calculation`, {
         calcType: 'short',
@@ -317,10 +325,14 @@ async function calculationStatus(ctx) {
     }).then(async (response) => {
         if (response.data?.calcStatus === 'complete') {
             const companies = await getCompanies(ctx);
+            const arrayBtnStatus = [];
             response.data.result.map((data) => {
-                const logo = `./sprites/${data['polis_online_code']}.jpg`;
+                //const logo = `./sprites/${data['polis_online_code']}.jpg`;
                 const name = companies[data['polis_online_code']] ? `${companies[data['polis_online_code']]['name']}` : data['polis_online_code'];
-                if (!data.errorMessage && !data.errorCriticalMessage) {
+                if (!data.errorCriticalMessage && data['price']) {
+                    arrayBtnStatus.push([Markup.button.callback(`Оформить ${name} ${data['price'] ? data['price']: '???'} ${valute.find(data => data.value === ctx.session.valute).label}`, `direct_lead-${name}-${data['price']}`)]);
+                }
+                /*if (!data.errorMessage && !data.errorCriticalMessage) {
                     ctx.replyWithPhoto(
                         {
                             source: logo
@@ -344,9 +356,15 @@ async function calculationStatus(ctx) {
                                 Markup.button.callback('➡ Оформить', `direct_lead-${name}-${data['price']}`),
                             ]),
                         });
-                }
+                }*/
             })
             clearInterval(interval);
+            ctx.reply('Вас готовы оформить:', {
+                ...Markup.inlineKeyboard(
+                    arrayBtnStatus
+                ),
+            })
+            //ctx.deleteMessage(ctx.session.message_id);
             return true;
         }
     }).catch((error) => {
@@ -367,6 +385,7 @@ async function sendLead(ctx) {
     Телефон: ${ctx.session.phone};
     Email: ${ctx.session.email};
     Выбранная компания: ${ctx.session.company};
+    Дополнительная информация: ${ctx.session.more_text};
     Имя пользователя в Телеграмме: ${ctx.from?.username};`;
     const lsToken= `Bearer ${ctx.session.token}`;
     const policy = await axios.post(`${process.env.API_URL}/api/widgets/sendTestLeadToCrm`, {
@@ -380,7 +399,7 @@ async function sendLead(ctx) {
             lastName: ctx.from?.last_name,
             price: ctx.session.price,
             assigned: '47367',
-            title: 'Тестовое офрмление тг бота',
+            title: 'Оформление через тг бота по грузам',
         },
         widgetId: 15200,
         policyId: ctx.session.newDraft.id,
@@ -391,6 +410,7 @@ async function sendLead(ctx) {
         },
         maxRedirects: 1,
     }).then((response) => {
+        console.log(response.data);
         return true;
     }).catch((error) => {
         return false;
@@ -420,7 +440,6 @@ async function createPolicy(ctx) {
             data: {}
         }
     };
-    console.log(ctx.session.token);
     const lsToken= `Bearer ${ctx.session.token}`;
     const policy = await axios.post(`${process.env.API_URL}/api/policy`, {
         type: 'cargoInsurance',
@@ -445,10 +464,8 @@ async function createPolicy(ctx) {
         }
         return true;
     }).catch((error) => {
-        console.log(error.status);
         return false;
     });
-    console.log(policy);
     if (policy) {
         const calc = await startCalculationShort(ctx);
         if (calc === 'start') {

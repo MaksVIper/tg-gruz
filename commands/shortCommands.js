@@ -2,6 +2,7 @@ const {Markup} = require("telegraf");
 const {startAgg} = require("../actions/shortActions");
 
 async function commandStart(ctx) {
+    ctx.session = {};
     //await startAgg(ctx);
     ctx.replyWithPhoto(
         {
@@ -23,7 +24,6 @@ async function commandStart(ctx) {
             parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
                 Markup.button.callback('➡ Оформить полис', 'stage_1'),
-                Markup.button.callback('📋 Посмотреть команды', 'btn-1'),
             ]),
         });
 }

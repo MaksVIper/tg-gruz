@@ -1,4 +1,4 @@
-const { Telegraf, session} = require("telegraf");
+const { Telegraf, session, Markup} = require("telegraf");
 const Datastore = require('nedb');
 const commandStart = require("./commands/shortCommands");
 const {stageOne, stageFour, stageFive, stageSix, stageSeven, stageEight, calcShort, sendLead} = require("./actions/shortActions");
@@ -74,14 +74,33 @@ bot.action(/^calc_short-(.*)$/, async (ctx) => {
 
 bot.action(/^direct_lead-(.*)$/, async (ctx) => {
     const data = ctx.match[1];
-    const { message_id } = await ctx.reply('Введите номер телефона для свзяи:');
+    const company = data.slice(0, data.lastIndexOf('-') + 1).replace('-', '');
+    let messageMore =  '1. ИНН Страхователя\n' +
+        '2. Тип упаковки груза\n' +
+        '3. Вес\n' +
+        '4. Кол-во мест\n' +
+        '5. Марка и гос номер авто, на котором едет груз/IMO судна/номер вагона/номер контейнера\n' +
+        '6. Тип, номер и дата транспортного документа\n' +
+        '7. ИНН перевозчика для резидента РФ / Наименование перевозчика для нерезидетна РФ';
+    if (company !== 'Гелиос') {
+        messageMore += '\n8. ИНН отправителя\n' + '9. ИНН получателя';
+    }
+    const { message_id } = await ctx.reply('Укажите недостающие данные для оформления полиса\n' + messageMore, Markup.forceReply());
+    ctx.session = {
+        ...ctx.session,
+        state_step: 'more_text',
+        company: data.slice(0, data.lastIndexOf('-') + 1).replace('-', ''),
+        price: parseFloat(data.slice(data.lastIndexOf('-') + 1)),
+        message_id,
+    }
+    /*const { message_id } = await ctx.reply('Введите номер телефона для свзяи:');
     ctx.session = {
         ...ctx.session,
         state_step: 'phone',
         company: data.slice(0, data.lastIndexOf('-') + 1).replace('-', ''),
         price: parseFloat(data.slice(data.lastIndexOf('-') + 1)),
         message_id,
-    }
+    }*/
 });
 // Обработчик простого текста
 bot.on("text", async (ctx, next) => {
@@ -104,8 +123,12 @@ bot.on("text", async (ctx, next) => {
             }
             return await next();
         } else {
-            await ctx.telegram.sendMessage(ctx.chat.id, 'Введите только числовые данные. Например: 3000000.55');
-            await ctx.reply("Стоимость груза");
+            const message1 = await ctx.reply('Введите только числовые данные. Например: 3000000.55');
+            const message2 = await ctx.reply("Стоимость груза:");
+            setTimeout(() => {
+            ctx.deleteMessage(message1.message_id);
+            ctx.deleteMessage(message2.message_id);
+        }, 7000);
         }
     }
 
@@ -132,10 +155,24 @@ bot.on("text", async (ctx, next) => {
         }
         ctx.deleteMessage(ctx.session.message_id);
         ctx.deleteMessage();
-        const { message_id } = await ctx.telegram.sendMessage(ctx.chat.id, 'Введите нанименование груза:');
+        const { message_id } = await ctx.telegram.sendMessage(ctx.chat.id, 'Введите наименование груза:');
         ctx.session = {
             ...ctx.session,
             state_step: 'cargoName',
+            message_id,
+        }
+        return await next();
+    }
+
+    if (ctx.session?.state_step === 'more_text') {
+        ctx.session = {
+            ...ctx.session,
+            more_text: ctx.message.text,
+        }
+        const {message_id} = await ctx.reply('Введите номер телефона для связи:');
+        ctx.session = {
+            ...ctx.session,
+            state_step: 'phone',
             message_id,
         }
         return await next();
@@ -155,8 +192,12 @@ bot.on("text", async (ctx, next) => {
             }
             return await next();
         } else {
-            await ctx.telegram.sendMessage(ctx.chat.id, 'Введите только числовые данные. Например: 89111111111');
-            await ctx.reply("Введите номер телефона для связи:");
+            const message1 = await ctx.reply('Введите только числовые данные. Например: 89111111111');
+            const message2 = await ctx.reply("Введите номер телефона для связи:");
+            setTimeout(() => {
+            ctx.deleteMessage(message1.message_id);
+            ctx.deleteMessage(message2.message_id);
+        }, 7000);
         }
     }
 
@@ -165,14 +206,25 @@ bot.on("text", async (ctx, next) => {
             ...ctx.session,
             email: ctx.message.text,
         }
-        for(let i = 0; i <= 100; i++ ){
-            k =  ctx.message.message_id-i;
-            ctx.deleteMessage(k)
+        for(let i = 0; i <= 6; i++ ){
+            let k =  ctx.message.message_id-i;
+            try {
+                ctx.deleteMessage(k)
+            } catch (e) {
+                
+            }
         }
-        ctx.reply(`Черновик полиса сформирован его номер ${ctx.session.newDraft.id}! Вы выбрали компанию ${ctx.session.company} В скором времени с вами свяжется наш сотрудник для последующего оформления. Спасибо что выбрали наш сервис!`);
-        await sendLead(ctx);
+        let lead = await sendLead(ctx);
+        if (lead) {
+            const message = await ctx.reply('Благодарим Вас за то, что Вы выбрали наш сервис.Полис страхования перевозки грузов и счет на оплату страховой премии придет на указанный e-mail в ближайшее время.\nПри возникновении вопросов cargo@polis.online');
+            setTimeout(() => {
+            ctx.deleteMessage(message.message_id);}, 60000);
+        } else {
+            const message = await ctx.reply('Ошибка отправки лида');
+            setTimeout(() => {
+            ctx.deleteMessage(message.message_id);}, 60000);
+        }
         ctx.session = {}
-        await commandStart(ctx);
         return await next();
     }
 
@@ -186,7 +238,10 @@ bot.on("text", async (ctx, next) => {
             await stageFour(ctx);
             return 'success';
         } else {
-            await ctx.telegram.sendMessage(ctx.chat.id, 'Пока нету нужной стадии для ввода информации!');
+            const message = await ctx.reply('Пока нету нужной стадии для ввода информации!');
+            setTimeout(() => {
+            ctx.deleteMessage(message.message_id);
+        }, 7000);
         }
     }
 });
