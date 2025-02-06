@@ -332,31 +332,6 @@ async function calculationStatus(ctx) {
                 if (!data.errorCriticalMessage && data['price']) {
                     arrayBtnStatus.push([Markup.button.callback(`Оформить ${name} ${data['price'] ? data['price']: '???'} ${valute.find(data => data.value === ctx.session.valute).label}`, `direct_lead-${name}-${data['price']}`)]);
                 }
-                /*if (!data.errorMessage && !data.errorCriticalMessage) {
-                    ctx.replyWithPhoto(
-                        {
-                            source: logo
-                        },
-                        {
-                            caption: `Вас готова оформить компания ${name} на сумму <b>${data['price'] ? data['price']: '???'} ${valute.find(data => data.value === ctx.session.valute).label}</b>`,
-                            parse_mode: 'HTML',
-                            ...Markup.inlineKeyboard([
-                                Markup.button.callback('➡ Оформить', `direct_lead-${name}-${data['price']}`),
-                            ]),
-                        });
-                } else if (!data.errorCriticalMessage) {
-                    ctx.replyWithPhoto(
-                        {
-                            source: logo
-                        },
-                        {
-                            caption: `Вас готова оформить компания ${name} на сумму <b>${data['price'] ? data['price']: '???'} ${valute.find(data => data.value === ctx.session.valute).label}</b>,но с учетом <b>согласования</b>`,
-                            parse_mode: 'HTML',
-                            ...Markup.inlineKeyboard([
-                                Markup.button.callback('➡ Оформить', `direct_lead-${name}-${data['price']}`),
-                            ]),
-                        });
-                }*/
             })
             clearInterval(interval);
             ctx.reply('Вас готовы оформить:', {
@@ -413,6 +388,7 @@ async function sendLead(ctx) {
         console.log(response.data);
         return true;
     }).catch((error) => {
+        console.log(error);
         return false;
     });
 
