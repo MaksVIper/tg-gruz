@@ -229,7 +229,9 @@ async function startAgg(ctx) {
 }
 
 async function getCargoCategory(ctx) {
-    await waitToken(ctx);
+    if (!ctx.session?.token) {
+        await waitToken(ctx);
+    }
     const lsToken= `Bearer ${ctx.session.token}`;
     return await axios.post(`${process.env.API_URL}/api/gpt`, {
         query: 'defineCargo',
